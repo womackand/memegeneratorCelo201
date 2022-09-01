@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.2;
+pragma solidity ^0.8.4;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
@@ -12,45 +12,61 @@ contract MemeNFT is ERC721, ERC721Enumerable, ERC721URIStorage, Ownable {
 
     Counters.Counter private _tokenIdCounter;
 
-    uint256 MintFee;
+    uint256 private MintFee;
 
-    constructor(uint256 _mintFee, uint256 _decimals) ERC721("MemeNFT", "MNFT") {
-        uint256 decimals = 10**_decimals;
-        MintFee = (_mintFee * 1 ether) / decimals;
+    modifier checkAddress(address _address) {
+        require(
+            _address != address(0),
+            "Error: Zero address is not a valid address"
+        );
+        _;
+    }
+
+    constructor(uint256 _mintFee) ERC721("MemeNFT", "MNFT") {
+        MintFee = _mintFee * 1 ether;
     }
 
     // Mapping to keep track of tokenID and their owners
     mapping(address => uint256[]) private nftTracker;
 
-    //    mint an NFT
-    //    Users pay a mint fee in cUSD to be able to mint a token
-    function safeMint(address to, string memory uri) public payable {
+    /// @dev mints an NFT
+    /// @notice Users pay a mint fee in CELO to be able to mint a token
+    function safeMint(address to, string calldata uri)
+        public
+        payable
+        checkAddress(to)
+    {
         require(MintFee == msg.value, "Celo supplied not up to minting fee");
-
-        // transfer fees
-        (bool success, ) = payable(owner()).call{value: msg.value}("");
-        require(success, "Transfer of fee failed");
-
+        require(bytes(uri).length > 0, "Empty uri");
         uint256 tokenId = _tokenIdCounter.current();
         _tokenIdCounter.increment();
         _safeMint(to, tokenId);
         _setTokenURI(tokenId, uri);
         _keepTrack(msg.sender, tokenId);
+
+        // transfer fees
+        (bool success, ) = payable(owner()).call{value: msg.value}("");
+        require(success, "Transfer of fee failed");
     }
 
-    //    Send meme to friends
-    function sendMeme(address to, uint256 tokenId) public {
+    /// @dev Send meme to friends
+    function sendMeme(address to, uint256 tokenId) public checkAddress(to) {
+        require(_exists(tokenId), "Query of nonexistent meme");
+        require(
+            _isApprovedOrOwner(msg.sender, tokenId),
+            "Error: Not owner/operator"
+        );
         _transfer(msg.sender, to, tokenId);
         _keepTrack(to, tokenId);
     }
 
-    //   Get user meme mapping
+    /// @dev   Get user meme mapping
     function getUserMemeIds(address _user)
         public
         view
+        checkAddress(_user)
         returns (uint256[] memory)
     {
-        require(_user != address(0), "Invalid address");
         uint256[] memory userMemes = new uint256[](balanceOf(_user));
         uint256 index = 0;
         for (uint256 i = 0; i < nftTracker[_user].length; i++) {
@@ -67,8 +83,8 @@ contract MemeNFT is ERC721, ERC721Enumerable, ERC721URIStorage, Ownable {
         return MintFee;
     }
 
-    //    Keep Track of Minted NFTS and their owners
-    function _keepTrack(address _address, uint256 _id) internal {
+    /// @dev Keep Track of Minted NFTS and their owners
+    function _keepTrack(address _address, uint256 _id) private {
         nftTracker[_address].push(_id);
     }
 
@@ -107,6 +123,33 @@ contract MemeNFT is ERC721, ERC721Enumerable, ERC721URIStorage, Ownable {
         returns (bool)
     {
         return super.supportsInterface(interfaceId);
+    }
+
+    /**
+     * @dev See {IERC721-transferFrom}.
+     * Changes is made to transferFrom to update state for mapping nftTracker
+     */
+    function transferFrom(
+        address from,
+        address to,
+        uint256 tokenId
+    ) public override {
+        _keepTrack(to, tokenId);
+        super.transferFrom(from, to, tokenId);
+    }
+
+    /**
+     * @dev See {IERC721-safeTransferFrom}.
+     * Changes is made to safeTransferFrom to update state for mapping nftTracker
+     */
+    function safeTransferFrom(
+        address from,
+        address to,
+        uint256 tokenId,
+        bytes memory data
+    ) public override {
+        _keepTrack(to, tokenId);
+        _safeTransfer(from, to, tokenId, data);
     }
 
     // Fallback: reverts if Celo is sent to this smart-contract by mistake
