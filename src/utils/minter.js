@@ -42,7 +42,8 @@ export const createNft = async (
       const added = await client.add(data);
 
       // IPFS url for uploaded metadata
-      const url = `https://ipfs.infura.io/ipfs/${added.path}`;
+      // const url = `https://ipfs.infura.io/ipfs/${added.path}`;
+      const url = `https://memegenerator.infura-ipfs.io/ipfs/${added.path}`;
 
       const mintFee = await minterContract.methods.getMintFee().call();
 
@@ -89,7 +90,7 @@ export const uploadToIpfs = async (file) => {
     const added = await client.add(file, {
       progress: (prog) => console.log(`received: ${prog}`),
     });
-    return `https://ipfs.infura.io/ipfs/${added.path}`;
+    return `https://memegenerator.infura-ipfs.io/ipfs/${added.path}`;
   } catch (error) {
     console.log("Error uploading file: ", error);
   }
