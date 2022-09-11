@@ -7,7 +7,7 @@ import { useMinterContract } from "../hooks";
 
 export default function GeneratorForm({ updateBalance }) {
   const [memeUrl, setMemeUrl] = React.useState(
-    "http://vignette1.wikia.nocookie.net/meme/images/7/71/BusinessCat2.jpg"
+    "https://i.postimg.cc/K8P7wWyd/Business-Cat2.webp"
   );
   const [btnText, setBtnText] = React.useState("Generate");
   const [sparks, setSparks] = React.useState("");
